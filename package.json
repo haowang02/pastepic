@@ -1,0 +1,39 @@
+{
+  "name": "pastepic",
+  "version": "1.0.0",
+  "description": "粘贴图片，生成临时链接。A self-hosted image sharing service whose links expire after 7 days.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/haowang02/pastepic.git"
+  },
+  "homepage": "https://github.com/haowang02/pastepic#readme",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:server": "node --watch --disable-warning=ExperimentalWarning server/index.ts",
+    "build": "tsc --noEmit && vite build",
+    "start": "node --disable-warning=ExperimentalWarning server/index.ts",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "icons": "node scripts/make-icons.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.3",
+    "@fastify/multipart": "^10.1.3",
+    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/static": "^10.1.6",
+    "fastify": "^5.12.5",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "lucide": "^1.55.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}

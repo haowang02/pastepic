@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>贴图 - 粘贴图片，生成临时链接</title>
+    <meta name="description" content="粘贴、拖拽或选择图片，立即生成分享链接并自动复制。图片 7 天后自动删除。" />
+    <meta name="theme-color" content="#f3f5fd" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script src="/theme.js"></script>
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="贴图首页">
+        <img src="/favicon.svg" alt="" width="32" height="32" />
+        <span>贴图</span>
+      </a>
+      <button id="theme-toggle" class="icon-btn" type="button"></button>
+    </header>
+
+    <main class="page">
+      <section
+        id="dropzone"
+        class="dropzone"
+        role="button"
+        tabindex="0"
+        aria-label="上传图片：粘贴、拖拽或点击选择文件"
+      >
+        <div class="dz-art" aria-hidden="true">
+          <span class="dz-card dz-card-back"></span>
+          <span class="dz-card dz-card-mid"></span>
+          <svg class="dz-card dz-card-front" viewBox="0 0 38 33">
+            <rect width="38" height="33" rx="5" fill="#fff" />
+            <path d="M4 28 14.5 15.5l7 8 5-5.5L34 28z" fill="#2F5BFF" />
+            <circle cx="27.5" cy="8.5" r="4" fill="#FF6FAE" />
+          </svg>
+          <span class="dz-tape"></span>
+        </div>
+        <p class="dz-title">粘贴、拖拽或点击上传图片</p>
+        <p class="dz-title dz-title-drop">松开即可上传</p>
+        <ul class="dz-meta">
+          <li><i data-icon="clipboard" data-size="15"></i>自动复制链接</li>
+          <li><i data-icon="drive" data-size="15"></i><span id="limit-size">单张最大 25 MB</span></li>
+          <li><i data-icon="clock" data-size="15"></i><span id="limit-days">7 天后删除</span></li>
+        </ul>
+        <div class="dz-progress" aria-hidden="true"><span></span></div>
+      </section>
+      <input
+        id="file-input"
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp,image/avif"
+        multiple
+        hidden
+      />
+
+      <section id="batch" class="batch" aria-labelledby="batch-title" hidden>
+        <header class="batch-head">
+          <h2 id="batch-title" class="batch-title">上传结果</h2>
+          <span class="batch-count" aria-live="polite"></span>
+          <span class="spacer"></span>
+          <button class="btn batch-copy-all" type="button" disabled><i data-icon="copy" data-size="16"></i>复制全部链接</button>
+          <button class="icon-btn batch-close" type="button" aria-label="关闭上传结果" title="关闭"><i data-icon="close"></i></button>
+        </header>
+        <div class="batch-scroll">
+          <table class="batch-table">
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="library" aria-labelledby="library-title">
+        <header class="library-head">
+          <h2 id="library-title" class="library-title">上传记录</h2>
+          <span id="library-count" class="library-count"></span>
+          <span class="library-note">仅显示当前浏览器上传的图片</span>
+        </header>
+        <div id="gallery" class="masonry"></div>
+        <div id="gallery-status" class="gallery-status" role="status"></div>
+      </section>
+    </main>
+
+    <dialog id="viewer" class="viewer" aria-label="图片详情">
+      <div class="viewer-stage">
+        <img class="viewer-img" alt="" />
+        <button class="icon-btn viewer-nav viewer-prev" type="button" aria-label="上一张"><i data-icon="chevron-left" data-size="26"></i></button>
+        <button class="icon-btn viewer-nav viewer-next" type="button" aria-label="下一张"><i data-icon="chevron-right" data-size="26"></i></button>
+      </div>
+      <div class="viewer-bar">
+        <div class="viewer-meta">
+          <span class="viewer-dims"></span>
+          <span class="viewer-type"></span>
+          <span class="viewer-size"></span>
+          <span class="viewer-expiry"></span>
+        </div>
+        <div class="viewer-link">
+          <input class="viewer-url" type="text" readonly aria-label="图片链接" spellcheck="false" />
+          <button class="btn btn-primary viewer-copy" type="button"><i data-icon="copy" data-size="16"></i>复制链接</button>
+        </div>
+        <div class="viewer-actions">
+          <a class="icon-btn viewer-open" target="_blank" rel="noopener" aria-label="在新标签页打开原图" title="打开原图"><i data-icon="external"></i></a>
+          <a class="icon-btn viewer-download" aria-label="下载原图" title="下载"><i data-icon="download"></i></a>
+        </div>
+      </div>
+      <button class="icon-btn viewer-close" type="button" aria-label="关闭" title="关闭（Esc）"><i data-icon="close" data-size="22"></i></button>
+    </dialog>
+
+    <div id="toasts" class="toasts"></div>
+  </body>
+</html>

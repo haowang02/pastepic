@@ -1,0 +1,13 @@
+{
+  "name": "贴图",
+  "short_name": "贴图",
+  "description": "粘贴图片，生成临时链接",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f3f5fd",
+  "theme_color": "#2f5bff",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

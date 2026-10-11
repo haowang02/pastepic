@@ -1,0 +1,26 @@
+services:
+  pastepic:
+    build: .
+    image: pastepic:latest
+    container_name: pastepic
+    restart: unless-stopped
+    ports:
+      # Keep this on a private address and put a reverse proxy with HTTPS in front.
+      - "${PASTEPIC_BIND:-127.0.0.1:8080}:3000"
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      RETENTION_DAYS: ${RETENTION_DAYS:-7}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
+      UPLOAD_RATE_MAX: ${UPLOAD_RATE_MAX:-120}
+      TRUST_PROXY: ${TRUST_PROXY:-1}
+    volumes:
+      - pastepic-data:/data
+    mem_limit: 768m
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  pastepic-data:
