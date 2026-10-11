@@ -51,6 +51,7 @@ export function openDatabase(file: string) {
       INSERT INTO images (id, session_id, ext, mime, size, width, height, created_at, expires_at)
       VALUES (:id, :sessionId, :ext, :mime, :size, :width, :height, :createdAt, :expiresAt)`),
     getImage: db.prepare(`SELECT ${IMAGE_COLUMNS} FROM images WHERE id = ?`),
+    renewImage: db.prepare('UPDATE images SET expires_at = ? WHERE id = ?'),
     listImages: db.prepare(`
       SELECT ${IMAGE_COLUMNS} FROM images
       WHERE session_id = ? AND expires_at > ? AND seq < ?
@@ -70,6 +71,9 @@ export function openDatabase(file: string) {
     },
     getImage(id: string): ImageRecord | undefined {
       return q.getImage.get(id) as ImageRecord | undefined;
+    },
+    renewImage(id: string, expiresAt: number): void {
+      q.renewImage.run(expiresAt, id);
     },
     hasImage(id: string): boolean {
       return q.hasImage.get(id) !== undefined;

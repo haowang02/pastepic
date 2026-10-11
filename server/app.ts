@@ -175,6 +175,14 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
     };
   });
 
+  app.get<{ Params: { id: string } }>('/api/images/:id', async (req, reply) => {
+    const img = db.getImage(req.params.id);
+    if (!img || img.sessionId !== req.sessionKey || img.expiresAt <= Date.now()) {
+      return apiError(reply, 404, 'not_found', '图片不存在或已删除');
+    }
+    return toDto(img, origin(req));
+  });
+
   app.post(
     '/api/images',
     {
@@ -240,9 +248,18 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
       if (!match || !img || match[2] !== ext || img.expiresAt <= now) {
         return reply.code(404).type('text/plain; charset=utf-8').send('Not found');
       }
-      const maxAge = Math.max(0, Math.floor((img.expiresAt - now) / 1000));
+      // Every view of an original restarts its countdown, so browsers must check back on each view
+      // (a 304 when unchanged) for views from their cache to count. Thumbnails don't count as views,
+      // and an expiry only ever moves later, so they can be cached until the one known now.
+      let caching: string;
+      if (kind === 'image') {
+        db.renewImage(img.id, now + config.retentionMs);
+        caching = 'no-cache';
+      } else {
+        caching = `max-age=${Math.floor((img.expiresAt - now) / 1000)}, immutable`;
+      }
       reply.headers({
-        'Cache-Control': `public, max-age=${maxAge}, immutable`,
+        'Cache-Control': `public, ${caching}`,
         'X-Content-Type-Options': 'nosniff',
         'Access-Control-Allow-Origin': '*',
         'Cross-Origin-Resource-Policy': 'cross-origin',

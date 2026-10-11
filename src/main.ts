@@ -52,7 +52,7 @@ fetchSession()
     total = Math.max(total, session.count);
     renderCount();
     $('limit-size').textContent = `单张最大 ${Math.round(session.maxUploadBytes / 1024 / 1024)} MB`;
-    $('limit-days').textContent = `${session.retentionDays} 天后删除`;
+    $('limit-days').textContent = `${session.retentionDays} 天无人访问后删除`;
   })
   .catch(() => undefined);
 

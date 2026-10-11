@@ -1,4 +1,4 @@
-import type { ImageItem } from './api.ts';
+import { fileName, type ImageItem } from './api.ts';
 import { formatBytes, formatDateTime, formatRemaining, formatType } from './format.ts';
 import type { Gallery } from './gallery.ts';
 
@@ -93,32 +93,43 @@ export class Viewer {
     const item = this.current;
     if (!item) return this.dialog.close();
 
-    // Show the cached thumbnail immediately, then swap in the original once it has decoded.
-    this.img.src = item.thumbUrl;
     this.img.width = item.width;
     this.img.height = item.height;
-    this.stage.classList.add('is-loading');
-    const full = new Image();
-    full.src = item.url;
-    full
-      .decode()
-      .then(() => {
-        if (this.current?.id === item.id) this.img.src = item.url;
-      })
-      .catch(() => undefined)
-      .finally(() => this.current?.id === item.id && this.stage.classList.remove('is-loading'));
+    void this.showOriginal(item);
 
     this.link.value = item.url;
     this.open_.href = item.url;
     this.download.href = item.url;
-    this.download.download = item.url.split('/').pop()!;
+    this.download.download = fileName(item);
     this.dims.textContent = `${item.width} × ${item.height}`;
     this.type.textContent = formatType(item.type);
     this.size.textContent = formatBytes(item.size);
-    this.expiry.textContent = `${formatRemaining(item.expiresAt)}后删除`;
-    this.expiry.title = `上传于 ${formatDateTime(item.createdAt)}，${formatDateTime(item.expiresAt)} 自动删除`;
+    this.renderExpiry(item);
 
     this.prevBtn.disabled = this.index === 0;
     this.nextBtn.disabled = this.index >= this.gallery.items.length - 1 && !this.gallery.hasMore;
+  }
+
+  /** Shows the cached thumbnail immediately, then swaps in the original once it has decoded. */
+  private async showOriginal(item: ImageItem): Promise<void> {
+    this.img.src = item.thumbUrl;
+    this.stage.classList.add('is-loading');
+    const full = new Image();
+    full.src = item.url;
+    const decoded = await full.decode().then(() => true, () => false);
+    if (this.current?.id === item.id) {
+      this.stage.classList.remove('is-loading');
+      if (decoded) this.img.src = item.url;
+    }
+    if (!decoded) return;
+
+    // Loading the original restarted its countdown on the server.
+    await this.gallery.refresh([item]);
+    if (this.current?.id === item.id) this.renderExpiry(item);
+  }
+
+  private renderExpiry(item: ImageItem): void {
+    this.expiry.textContent = `${formatRemaining(item.expiresAt)}后删除`;
+    this.expiry.title = `上传于 ${formatDateTime(item.createdAt)}，若无人访问将于 ${formatDateTime(item.expiresAt)} 自动删除`;
   }
 }

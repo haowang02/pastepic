@@ -11,6 +11,9 @@ import { purgeExpired, createStorage } from '../server/storage.ts';
 
 type App = Awaited<ReturnType<typeof buildApp>>;
 
+const DAY = 86400_000;
+const DAY_S = 86400;
+
 function multipart(file: Buffer, filename: string, type: string) {
   const boundary = '----test' + Math.random().toString(16).slice(2);
   const head = `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${type}\r\n\r\n`;
@@ -62,20 +65,21 @@ describe('image API', () => {
     assert.equal(img.width, 1200);
     assert.equal(img.height, 800);
     assert.equal(img.size, file.length);
-    assert.ok(img.expiresAt - img.createdAt === 7 * 86400_000);
+    assert.ok(img.expiresAt - img.createdAt === 7 * DAY);
 
     const original = await app.inject({ url: new URL(img.url).pathname });
     assert.equal(original.statusCode, 200);
     assert.equal(original.headers['content-type'], 'image/png');
     assert.equal(original.headers['access-control-allow-origin'], '*');
-    const maxAge = Number(/max-age=(\d+)/.exec(String(original.headers['cache-control']))?.[1]);
-    assert.ok(maxAge > 6 * 86400 && maxAge <= 7 * 86400, `cache lifetime follows expiry: ${original.headers['cache-control']}`);
-    assert.match(String(original.headers['cache-control']), /immutable/);
+    assert.equal(original.headers['cache-control'], 'public, no-cache');
     assert.deepEqual(original.rawPayload, file);
 
     const thumb = await app.inject({ url: img.thumbUrl });
     assert.equal(thumb.statusCode, 200);
     assert.equal(thumb.headers['content-type'], 'image/webp');
+    const maxAge = Number(/max-age=(\d+)/.exec(String(thumb.headers['cache-control']))?.[1]);
+    assert.ok(maxAge > 6 * DAY_S && maxAge <= 7 * DAY_S, `cache lifetime follows expiry: ${thumb.headers['cache-control']}`);
+    assert.match(String(thumb.headers['cache-control']), /immutable/);
     const meta = await sharp(thumb.rawPayload).metadata();
     assert.equal(meta.format, 'webp');
     assert.equal(meta.width, 640);
@@ -93,6 +97,13 @@ describe('image API', () => {
     // Links stay public: another session can still open the image.
     const res = await app.inject({ url: `/i/${a.items[0].id}.png`, headers: { cookie: bob } });
     assert.equal(res.statusCode, 200);
+
+    const own = await app.inject({ url: `/api/images/${a.items[0].id}`, headers: { cookie: alice } });
+    assert.equal(own.statusCode, 200);
+    assert.equal(own.json().id, a.items[0].id);
+    const other = await app.inject({ url: `/api/images/${a.items[0].id}`, headers: { cookie: bob } });
+    assert.equal(other.statusCode, 404);
+    assert.equal(other.json().error, 'not_found');
 
     const summary = (await app.inject({ url: '/api/session', headers: { cookie: alice } })).json();
     assert.equal(summary.count, 1);
@@ -150,13 +161,33 @@ describe('image API', () => {
     assert.equal(notMultipart.statusCode, 415);
   });
 
+  test('viewing the original restarts its countdown, viewing the thumbnail does not', async (t) => {
+    const { body, headers } = multipart(await png(80, 60), 'r.png', 'image/png');
+    const img = (await app.inject({ method: 'POST', url: '/api/images', headers: { ...headers, cookie: alice }, payload: body })).json();
+    const expiresAt = async () => (await app.inject({ url: `/api/images/${img.id}`, headers: { cookie: alice } })).json().expiresAt;
+
+    t.mock.timers.enable({ apis: ['Date'], now: img.createdAt + 3 * DAY });
+    await app.inject({ url: img.thumbUrl });
+    assert.equal(await expiresAt(), img.expiresAt);
+
+    const first = await app.inject({ url: new URL(img.url).pathname, headers: { cookie: bob } });
+    assert.equal(first.statusCode, 200);
+    assert.equal(await expiresAt(), img.createdAt + 10 * DAY);
+
+    // A browser revalidating its cached copy counts as a view too.
+    t.mock.timers.tick(DAY);
+    const revalidated = await app.inject({ url: new URL(img.url).pathname, headers: { 'if-none-match': String(first.headers.etag) } });
+    assert.equal(revalidated.statusCode, 304);
+    assert.equal(await expiresAt(), img.createdAt + 11 * DAY);
+  });
+
   test('expired images disappear from history, links and disk', async () => {
     const db = openDatabase(path.join(dataDir, 'images.db'));
     const storage = createStorage(dataDir);
     const before = readdirSync(storage.imagesDir).length;
     assert.ok(before > 0);
 
-    const removed = await purgeExpired(db, storage, Date.now() + 8 * 86400_000);
+    const removed = await purgeExpired(db, storage, Date.now() + 30 * DAY);
     db.close();
     assert.equal(removed, before);
     assert.equal(readdirSync(storage.imagesDir).length, 0);

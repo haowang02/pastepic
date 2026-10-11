@@ -1,6 +1,6 @@
-import { fetchImages, type ImageItem } from './api.ts';
+import { fetchImage, fetchImages, fileName, type ImageItem } from './api.ts';
 import { expiresSoon, formatRemaining } from './format.ts';
-import { icon } from './icons.ts';
+import { icon, type IconName } from './icons.ts';
 
 const MIN_COLUMN_WIDTH = 220;
 const MAX_COLUMNS = 6;
@@ -17,6 +17,15 @@ interface GalleryHandlers {
 }
 
 const tileRatio = (item: ImageItem) => Math.min(item.height / item.width, MAX_TILE_RATIO);
+
+function tileAction<K extends 'a' | 'button'>(tag: K, label: string, glyph: IconName): HTMLElementTagNameMap[K] {
+  const el = document.createElement(tag);
+  el.className = 'tile-action';
+  el.setAttribute('aria-label', label);
+  el.title = label;
+  el.append(icon(glyph, 16));
+  return el;
+}
 
 export class Gallery {
   readonly items: ImageItem[] = [];
@@ -40,8 +49,8 @@ export class Gallery {
     new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && void this.loadMore(), {
       rootMargin: '0px 0px 1200px 0px',
     }).observe(status);
-    // Drop images that expire while the page stays open.
-    setInterval(() => this.prune(), 60_000);
+    // Keep countdowns current and catch images that expire while the page stays open.
+    setInterval(() => void this.tick(), 60_000);
   }
 
   get hasMore(): boolean {
@@ -145,44 +154,68 @@ export class Gallery {
     img.src = item.thumbUrl;
     link.append(img);
 
-    const copy = document.createElement('button');
+    const copy = tileAction('button', '复制链接', 'copy');
     copy.type = 'button';
-    copy.className = 'tile-copy';
-    copy.setAttribute('aria-label', '复制链接');
-    copy.title = '复制链接';
-    copy.append(icon('copy', 16));
     copy.addEventListener('click', () => this.handlers.copy(item));
 
-    tile.append(link, copy);
-    if (expiresSoon(item.expiresAt)) tile.append(this.expiryBadge(item));
+    const download = tileAction('a', '下载原图', 'download');
+    download.href = item.url;
+    download.download = fileName(item);
+
+    const actions = document.createElement('div');
+    actions.className = 'tile-actions';
+    actions.append(copy, download);
+
+    tile.append(link, actions);
     this.tiles.set(item.id, tile);
+    this.renderBadge(item);
     return tile;
   }
 
-  private expiryBadge(item: ImageItem): HTMLElement {
+  private renderBadge(item: ImageItem, now = Date.now()): void {
+    const tile = this.tiles.get(item.id);
+    if (!tile) return;
+    tile.querySelector('.tile-badge')?.remove();
+    if (!expiresSoon(item.expiresAt, now)) return;
     const badge = document.createElement('span');
     badge.className = 'tile-badge';
     badge.title = '即将自动删除';
-    badge.append(icon('clock', 13), document.createTextNode(`剩 ${formatRemaining(item.expiresAt)}`));
-    return badge;
+    badge.append(icon('clock', 13), document.createTextNode(`剩 ${formatRemaining(item.expiresAt, now)}`));
+    tile.append(badge);
   }
 
-  private prune(): void {
-    const now = Date.now();
-    const alive = this.items.filter((item) => item.expiresAt > now);
-    if (alive.length !== this.items.length) {
-      for (const item of this.items) if (item.expiresAt <= now) this.tiles.delete(item.id);
-      const expired = this.items.length - alive.length;
-      this.items.splice(0, this.items.length, ...alive);
-      this.layout(true);
-      this.handlers.change(expired);
-    }
-    for (const item of this.items) {
-      const tile = this.tiles.get(item.id)!;
-      tile.querySelector('.tile-badge')?.remove();
-      if (expiresSoon(item.expiresAt, now)) tile.append(this.expiryBadge(item));
-    }
+  /**
+   * Re-reads images from the server. Anyone viewing an original restarts its countdown, so the expiry
+   * known here is only a lower bound: an image is dropped once the server has deleted it, not before.
+   */
+  async refresh(items: ImageItem[]): Promise<void> {
+    const results = await Promise.allSettled(items.map((item) => fetchImage(item.id)));
+    const deleted = new Set<string>();
+    results.forEach((result, i) => {
+      // A failed request leaves the image as it is; the next tick asks again.
+      if (result.status === 'rejected') return;
+      if (result.value === null) {
+        deleted.add(items[i].id);
+      } else {
+        items[i].expiresAt = result.value.expiresAt;
+        this.renderBadge(items[i]);
+      }
+    });
+
+    const kept = this.items.filter((item) => !deleted.has(item.id));
+    if (kept.length === this.items.length) return;
+    for (const id of deleted) this.tiles.delete(id);
+    const expired = this.items.length - kept.length;
+    this.items.splice(0, this.items.length, ...kept);
+    this.layout(true);
     this.renderStatus();
+    this.handlers.change(expired);
+  }
+
+  private tick(): Promise<void> {
+    const now = Date.now();
+    for (const item of this.items) this.renderBadge(item, now);
+    return this.refresh(this.items.filter((item) => item.expiresAt <= now));
   }
 
   private statusInView(): boolean {

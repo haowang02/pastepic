@@ -14,6 +14,7 @@ export interface Config {
   staticDir: string;
   /** Origin used to build image links, e.g. https://img.example.com. Derived from the request when empty. */
   publicUrl: string;
+  /** How long an image is kept after its upload or the last view of its original. */
   retentionMs: number;
   maxUploadBytes: number;
   cleanupIntervalMs: number;

@@ -1,7 +1,7 @@
 {
   "name": "pastepic",
   "version": "1.0.0",
-  "description": "粘贴图片，生成临时链接。A self-hosted image sharing service whose links expire after 7 days.",
+  "description": "粘贴图片，生成临时链接。A self-hosted image sharing service whose links expire after 7 days without views.",
   "license": "MIT",
   "repository": {
     "type": "git",

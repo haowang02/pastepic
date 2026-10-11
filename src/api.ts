@@ -10,6 +10,9 @@ export interface ImageItem {
   expiresAt: number;
 }
 
+/** Name the original is saved under, e.g. `Ab3dE6gH9k.png`. */
+export const fileName = (item: ImageItem) => item.url.slice(item.url.lastIndexOf('/') + 1);
+
 export interface ImagePage {
   items: ImageItem[];
   nextCursor: number | null;
@@ -43,6 +46,16 @@ export function fetchImages(cursor: number | null, limit = 30): Promise<ImagePag
   const params = new URLSearchParams({ limit: String(limit) });
   if (cursor) params.set('cursor', String(cursor));
   return getJson<ImagePage>(`/api/images?${params}`);
+}
+
+/** Resolves to `null` once the image has been deleted. */
+export async function fetchImage(id: string): Promise<ImageItem | null> {
+  try {
+    return await getJson<ImageItem>(`/api/images/${encodeURIComponent(id)}`);
+  } catch (err) {
+    if (err instanceof ApiError && err.code === 'not_found') return null;
+    throw err;
+  }
 }
 
 /** Uses XHR rather than fetch because fetch still cannot report upload progress. */

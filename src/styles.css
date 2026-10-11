@@ -607,10 +607,24 @@ button:disabled {
   opacity: 1;
 }
 
-.tile-copy {
+.tile-actions {
   position: absolute;
   top: 8px;
   right: 8px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+/* Revealed by the pointer or by keyboard focus only: focus a click leaves behind (for example on the
+   link the viewer returns focus to when it closes) must not keep them on screen. */
+.tile:hover .tile-actions,
+.tile:has(:focus-visible) .tile-actions {
+  opacity: 1;
+}
+
+.tile-action {
   display: grid;
   place-items: center;
   width: 34px;
@@ -621,22 +635,16 @@ button:disabled {
   background: rgb(255 255 255 / 0.94);
   color: #172045;
   box-shadow: 0 2px 10px rgb(13 18 48 / 0.2);
-  opacity: 0;
-  transition: opacity 0.15s;
+  transition: background-color 0.15s, color 0.15s;
 }
 
-.tile:hover .tile-copy,
-.tile:focus-within .tile-copy {
-  opacity: 1;
-}
-
-.tile-copy:hover {
+.tile-action:hover {
   background: #fff;
   color: #2f5bff;
 }
 
 @media (hover: none) {
-  .tile-copy {
+  .tile-actions {
     opacity: 1;
   }
 }
